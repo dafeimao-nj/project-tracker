@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目跟进系统</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; background: #f5f7fa; min-height: 100vh; }
+        
+        .stats-bar { background: white; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        .stats-container { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+        .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; color: white; }
+        .stat-card:nth-child(2) { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .stat-card:nth-child(3) { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .stat-card:nth-child(4) { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+        .stat-card:nth-child(5) { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+        .stat-label { font-size: 14px; opacity: 0.9; margin-bottom: 8px; }
+        .stat-value { font-size: 32px; font-weight: bold; }
+        
+        .kanban-container { max-width: 1400px; margin: 0 auto; padding: 0 20px 20px; }
+        .kanban-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+        .kanban-title { font-size: 24px; font-weight: bold; color: #333; }
+        .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .add-btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; transition: transform 0.2s; }
+        .add-btn:hover { transform: translateY(-2px); }
+        .export-btn { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+        .import-btn { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; cursor: pointer; position: relative; overflow: hidden; }
+        .import-btn input { position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+        
+        .kanban-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        .kanban-column { background: white; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); min-height: 200px; }
+        .column-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #f0f0f0; }
+        .column-title { font-size: 16px; font-weight: bold; color: #333; }
+        .column-count { background: #f0f0f0; padding: 4px 12px; border-radius: 12px; font-size: 14px; color: #666; }
+        
+        .card { background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 12px; border-left: 4px solid #667eea; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .card.priority-紧急 { border-left-color: #f5576c; }
+        .card.priority-高 { border-left-color: #f093fb; }
+        .card.priority-中 { border-left-color: #4facfe; }
+        .card.priority-低 { border-left-color: #43e97b; }
+        .card-title { font-size: 15px; font-weight: 600; color: #333; margin-bottom: 8px; line-height: 1.4; }
+        .card-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+        .tag { padding: 4px 8px; border-radius: 4px; font-size: 12px; background: #e8eaf6; color: #5c6bc0; }
+        .tag { background: #e8eaf6; color: #5c6bc0; }
+        .card-info { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #666; }
+        .owner { display: flex; align-items: center; gap: 4px; }
+        .owner-avatar { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; }
+        .due-date { font-size: 12px; }
+        .due-date.overdue { color: #f5576c; font-weight: bold; }
+        .progress-bar { height: 4px; background: #e0e0e0; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 2px; }
+        
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; border-radius: 12px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-title { font-size: 20px; font-weight: bold; }
+        .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+        .form-group { margin-bottom: 16px; }
+        .form-label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
+        .form-input, .form-select, .form-textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        .form-textarea { min-height: 100px; resize: vertical; }
+        .submit-btn { width: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px; border-radius: 6px; font-size: 16px; cursor: pointer; margin-top: 10px; }
+        .submit-btn:hover { opacity: 0.9; }
+        
+        .follow-up-list { margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
+        .follow-up-item { background: #f9fafb; padding: 12px; border-radius: 6px; margin-bottom: 10px; }
+        .follow-up-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; color: #666; }
+        .follow-up-content { font-size: 14px; color: #333; }
+        
+        @media (max-width: 768px) {
+            .stats-container { grid-template-columns: repeat(2, 1fr); }
+            .kanban-board { grid-template-columns: 1fr; }
+            .kanban-header { flex-direction: column; align-items: flex-start; }
+        }
+        @media (max-width: 480px) {
+            .stats-container { grid-template-columns: 1fr; }
+            .stat-value { font-size: 24px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="stats-bar">
+        <div class="stats-container" id="stats-container"></div>
+    </div>
+    
+    <div class="kanban-container">
+        <div class="kanban-header">
+            <div class="kanban-title">📋 工作事项看板</div>
+            <div class="header-actions">
+                <button class="export-btn" onclick="exportData()">📤 导出</button>
+                <label class="import-btn">
+                    📥 导入
+                    <input type="file" accept=".json" onchange="importData(event)">
+                </label>
+                <button class="add-btn" onclick="openAddModal()">+ 新增事项</button>
+            </div>
+        </div>
+        <div class="kanban-board" id="kanban-board"></div>
+    </div>
+    
+    <div class="modal" id="item-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modal-title">新增事项</div>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="item-form">
+                <input type="hidden" id="item-id">
+                <div class="form-group">
+                    <label class="form-label">事项名称 *</label>
+                    <select class="form-select" id="item-name" required>
+                        <option value="">请选择</option>
+                        <option value="风控模型的搭建">风控模型的搭建</option>
+                        <option value="智能客服">智能客服</option>
+                        <option value="智能巡检">智能巡检</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">事项说明 *</label>
+                    <input type="text" class="form-input" id="item-type" required placeholder="简要描述事项内容">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">负责人 *</label>
+                    <select class="form-select" id="item-owner" required>
+                        <option value="黄京">黄京</option>
+                        <option value="夏韵">夏韵</option>
+                        <option value="孙培">孙培</option>
+                        <option value="赵园园">赵园园</option>
+                        <option value="姜玉萍">姜玉萍</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">优先级</label>
+                    <select class="form-select" id="item-priority">
+                        <option value="低">低</option>
+                        <option value="中" selected>中</option>
+                        <option value="高">高</option>
+                        <option value="紧急">紧急</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">预计完成时间</label>
+                    <input type="date" class="form-input" id="item-expected-time">
+                </div>
+                <div class="form-group" id="status-group" style="display:none;">
+                    <label class="form-label">状态</label>
+                    <select class="form-select" id="item-status">
+                        <option value="未启动">未启动</option>
+                        <option value="进行中">进行中</option>
+                        <option value="遇阻">遇阻</option>
+                        <option value="待验收">待验收</option>
+                        <option value="已完成">已完成</option>
+                        <option value="已取消">已取消</option>
+                    </select>
+                </div>
+                <div class="form-group" id="progress-group" style="display:none;">
+                    <label class="form-label">进度 (0-100)</label>
+                    <input type="number" class="form-input" id="item-progress" min="0" max="100" value="0">
+                </div>
+                <button type="submit" class="submit-btn">保存</button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="modal" id="detail-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="detail-title">事项详情</div>
+                <button class="close-btn" onclick="closeDetailModal()">&times;</button>
+            </div>
+            <div id="detail-content"></div>
+            <div class="follow-up-list">
+                <h3 style="margin-bottom: 12px;">跟进记录</h3>
+                <div id="follow-up-list"></div>
+                <div style="margin-top: 16px;">
+                    <textarea class="form-textarea" id="follow-up-content" placeholder="添加跟进记录..."></textarea>
+                    <button class="submit-btn" style="margin-top: 8px;" onclick="addFollowUp()">添加跟进</button>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="submit-btn" style="background: #4facfe;" onclick="editCurrentItem()">编辑</button>
+                <button class="submit-btn" style="background: #f5576c;" onclick="deleteCurrentItem()">删除</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // ========== 数据层 ==========
+        const STORAGE_KEY = 'project_tracking_data';
+        
+        // 示例数据
+        const SAMPLE_DATA = {
+            items: [
+                {
+                    id: '1',
+                    name: '风控模型的搭建',
+                    type: '想通过长期的数据，得到对于用户的画像以及门店的画像。进而可以在新的办单数据进来的时候，可以判断能不能通过，要不要上增信手段',
+                    owner: '黄京',
+                    priority: '高',
+                    status: '进行中',
+                    progress: 30,
+                    expectedTime: '2026-06-30',
+                    createdAt: '2026-05-01'
+                },
+                {
+                    id: '2',
+                    name: '智能客服',
+                    type: '通过长期的学习和积累，\n1、可以实现自主与用户的交流和答疑，定期形成报告\n2、并将对不能回复的，转至人工客服，并作好相关的记录',
+                    owner: '夏韵',
+                    priority: '中',
+                    status: '未启动',
+                    progress: 0,
+                    expectedTime: '2026-07-31',
+                    createdAt: '2026-05-10'
+                },
+                {
+                    id: '3',
+                    name: '智能巡检',
+                    type: '分产品设定巡检助手，针对异常情况，\n1、及时通知产品\n2、记录产品处理的意见，\n3、在订单数据中打个标签',
+                    owner: '孙培',
+                    priority: '中',
+                    status: '待验收',
+                    progress: 90,
+                    expectedTime: '2026-05-25',
+                    createdAt: '2026-04-15'
+                }
+            ],
+            followUps: []
+        };
+        
+        function loadData() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            if (!data) {
+                // 首次使用，初始化示例数据
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(SAMPLE_DATA));
+                return SAMPLE_DATA;
+            }
+            return JSON.parse(data);
+        }
+        
+        function saveData(data) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }
+        
+        function generateId() {
+            return Date.now() + Math.random().toString(36).substr(2, 9);
+        }
+        
+        // ========== 统计 ==========
+        function getStatistics() {
+            const { items } = loadData();
+            const total = items.length;
+            const statusCount = { '未启动': 0, '进行中': 0, '遇阻': 0, '待验收': 0, '已完成': 0, '已取消': 0 };
+            let overdue = 0;
+            const now = new Date();
+            
+            items.forEach(item => {
+                statusCount[item.status] = (statusCount[item.status] || 0) + 1;
+                if (item.expectedTime && !['已完成', '已取消'].includes(item.status)) {
+                    if (new Date(item.expectedTime) < now) overdue++;
+                }
+            });
+            
+            const completed = statusCount['已完成'];
+            const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+            
+            return {
+                total,
+                notStarted: statusCount['未启动'],
+                inProgress: statusCount['进行中'],
+                blocked: statusCount['遇阻'],
+                pendingReview: statusCount['待验收'],
+                completed,
+                cancelled: statusCount['已取消'],
+                completionRate,
+                overdue
+            };
+        }
+        
+        // ========== 渲染 ==========
+        function loadStatistics() {
+            const stats = getStatistics();
+            document.getElementById('stats-container').innerHTML = `
+                <div class="stat-card"><div class="stat-label">总事项数</div><div class="stat-value">${stats.total}</div></div>
+                <div class="stat-card"><div class="stat-label">进行中</div><div class="stat-value">${stats.inProgress}</div></div>
+                <div class="stat-card"><div class="stat-label">已完成</div><div class="stat-value">${stats.completed}</div></div>
+                <div class="stat-card"><div class="stat-label">完成率</div><div class="stat-value">${stats.completionRate}%</div></div>
+                <div class="stat-card"><div class="stat-label">超期</div><div class="stat-value">${stats.overdue}</div></div>
+            `;
+        }
+        
+        function loadKanban() {
+            const { items } = loadData();
+            const columns = { '未启动': [], '进行中': [], '遇阻': [], '待验收': [], '已完成': [], '已取消': [] };
+            items.forEach(item => columns[item.status].push(item));
+            
+            const statusIcons = { '未启动': '⭕', '进行中': '🔄', '遇阻': '⚠️', '待验收': '🔍', '已完成': '✅', '已取消': '❌' };
+            
+            document.getElementById('kanban-board').innerHTML = Object.entries(columns).map(([status, items]) => `
+                <div class="kanban-column">
+                    <div class="column-header">
+                        <div class="column-title">${statusIcons[status]} ${status}</div>
+                        <div class="column-count">${items.length}</div>
+                    </div>
+                    ${items.map(item => renderCard(item)).join('')}
+                </div>
+            `).join('');
+        }
+        
+        function renderCard(item) {
+            const isOverdue = item.expectedTime && new Date(item.expectedTime) < new Date() && !['已完成', '已取消'].includes(item.status);
+            const typeClass = `type-${item.type}`;
+            const priorityClass = `priority-${item.priority}`;
+            
+            let dueDateText = '';
+            if (item.status === '已完成' && item.actualTime) {
+                dueDateText = `✅ ${formatDate(item.actualTime)} 完成`;
+            } else if (item.expectedTime) {
+                const days = Math.ceil((new Date(item.expectedTime) - new Date()) / 86400000);
+                dueDateText = isOverdue ? `⚠️ 已超期 ${Math.abs(days)} 天` : `截止: ${formatDate(item.expectedTime)}`;
+            }
+            
+            return `
+                <div class="card ${priorityClass}" onclick="openDetailModal('${item.id}')">
+                    <div class="card-title">${item.name}</div>
+                    <div class="card-meta">
+                        <span class="tag ${typeClass}">${item.type}</span>
+                        <span class="tag">${item.priority}</span>
+                    </div>
+                    <div class="card-info">
+                        <div class="owner">
+                            <div class="owner-avatar">${item.owner[0]}</div>
+                            <span>${item.owner}</span>
+                        </div>
+                        <div class="due-date ${isOverdue ? 'overdue' : ''}">${dueDateText}</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${item.progress || 0}%"></div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return `${d.getMonth() + 1}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        
+        // ========== 模态框 ==========
+        function openAddModal() {
+            document.getElementById('modal-title').textContent = '新增事项';
+            document.getElementById('item-form').reset();
+            document.getElementById('item-id').value = '';
+            document.getElementById('status-group').style.display = 'none';
+            document.getElementById('progress-group').style.display = 'none';
+            document.getElementById('item-modal').classList.add('active');
+        }
+        
+        function openEditModal(id) {
+            const { items } = loadData();
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+            
+            document.getElementById('modal-title').textContent = '编辑事项';
+            document.getElementById('item-id').value = item.id;
+            document.getElementById('item-name').value = item.name;
+            document.getElementById('item-type').value = item.type;
+            document.getElementById('item-owner').value = item.owner;
+            document.getElementById('item-priority').value = item.priority;
+            document.getElementById('item-status').value = item.status;
+            document.getElementById('item-progress').value = item.progress || 0;
+            if (item.expectedTime) {
+                document.getElementById('item-expected-time').value = item.expectedTime.split('T')[0];
+            }
+            document.getElementById('status-group').style.display = 'block';
+            document.getElementById('progress-group').style.display = 'block';
+            document.getElementById('item-modal').classList.add('active');
+        }
+        
+        function closeModal() {
+            document.getElementById('item-modal').classList.remove('active');
+        }
+        
+        document.getElementById('item-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('item-id').value;
+            const data = loadData();
+            
+            const itemData = {
+                name: document.getElementById('item-name').value,
+                type: document.getElementById('item-type').value,
+                owner: document.getElementById('item-owner').value,
+                priority: document.getElementById('item-priority').value,
+                expectedTime: document.getElementById('item-expected-time').value ? new Date(document.getElementById('item-expected-time').value).toISOString() : null,
+            };
+            
+            if (id) {
+                const idx = data.items.findIndex(i => i.id === id);
+                if (idx >= 0) {
+                    data.items[idx] = { 
+                        ...data.items[idx], 
+                        ...itemData,
+                        status: document.getElementById('item-status').value,
+                        progress: parseInt(document.getElementById('item-progress').value) || 0,
+                        updatedAt: new Date().toISOString()
+                    };
+                    if (data.items[idx].status === '已完成' && !data.items[idx].actualTime) {
+                        data.items[idx].actualTime = new Date().toISOString();
+                    }
+                }
+            } else {
+                data.items.push({
+                    id: generateId(),
+                    ...itemData,
+                    status: '未启动',
+                    progress: 0,
+                    createdAt: new Date().toISOString(),
+                    actualTime: null,
+                    latestUpdate: ''
+                });
+            }
+            
+            saveData(data);
+            closeModal();
+            loadStatistics();
+            loadKanban();
+        });
+        
+        let currentItemId = null;
+        
+        function openDetailModal(id) {
+            currentItemId = id;
+            const { items, followUps } = loadData();
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+            
+            document.getElementById('detail-title').textContent = item.name;
+            document.getElementById('detail-content').innerHTML = `
+                <p><strong>类型：</strong>${item.type}</p>
+                <p><strong>负责人：</strong>${item.owner}</p>
+                <p><strong>状态：</strong>${item.status}</p>
+                <p><strong>优先级：</strong>${item.priority}</p>
+                <p><strong>进度：</strong>${item.progress || 0}%</p>
+                <p><strong>创建时间：</strong>${new Date(item.createdAt).toLocaleString()}</p>
+                ${item.expectedTime ? `<p><strong>预计完成：</strong>${new Date(item.expectedTime).toLocaleDateString()}</p>` : ''}
+                ${item.actualTime ? `<p><strong>实际完成：</strong>${new Date(item.actualTime).toLocaleDateString()}</p>` : ''}
+                ${item.latestUpdate ? `<p><strong>最新进展：</strong>${item.latestUpdate}</p>` : ''}
+            `;
+            
+            const itemFollowUps = followUps.filter(f => f.itemId === id);
+            document.getElementById('follow-up-list').innerHTML = itemFollowUps.length > 0 ?
+                itemFollowUps.map(f => `
+                    <div class="follow-up-item">
+                        <div class="follow-up-header">
+                            <span>${f.person}</span>
+                            <span>${new Date(f.time).toLocaleString()}</span>
+                        </div>
+                        <div class="follow-up-content">${f.content}</div>
+                    </div>
+                `).join('') : '<p style="color: #999;">暂无跟进记录</p>';
+            
+            document.getElementById('detail-modal').classList.add('active');
+        }
+        
+        function closeDetailModal() {
+            document.getElementById('detail-modal').classList.remove('active');
+        }
+        
+        function addFollowUp() {
+            const content = document.getElementById('follow-up-content').value.trim();
+            if (!content) { alert('请输入跟进内容'); return; }
+            
+            const data = loadData();
+            data.followUps.push({
+                id: generateId(),
+                itemId: currentItemId,
+                time: new Date().toISOString(),
+                person: '曾峻',
+                content
+            });
+            
+            const item = data.items.find(i => i.id === currentItemId);
+            if (item) item.latestUpdate = content;
+            
+            saveData(data);
+            document.getElementById('follow-up-content').value = '';
+            openDetailModal(currentItemId);
+            loadKanban();
+        }
+        
+        function editCurrentItem() {
+            closeDetailModal();
+            openEditModal(currentItemId);
+        }
+        
+        function deleteCurrentItem() {
+            if (!confirm('确定要删除这个事项吗？')) return;
+            const data = loadData();
+            data.items = data.items.filter(i => i.id !== currentItemId);
+            data.followUps = data.followUps.filter(f => f.itemId !== currentItemId);
+            saveData(data);
+            closeDetailModal();
+            loadStatistics();
+            loadKanban();
+        }
+        
+        // ========== 导入导出 ==========
+        function exportData() {
+            const data = loadData();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `项目跟进数据_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (confirm('导入将覆盖当前数据，确定继续？')) {
+                        saveData(data);
+                        loadStatistics();
+                        loadKanban();
+                        alert('导入成功！');
+                    }
+                } catch (err) {
+                    alert('文件格式错误');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+        
+        // ========== 初始化 ==========
+        loadStatistics();
+        loadKanban();
+        setInterval(() => { loadStatistics(); loadKanban(); }, 30000);
+    </script>
+</body>
+</html>

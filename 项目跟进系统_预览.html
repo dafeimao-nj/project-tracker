@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目跟进系统 - 预览</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+        }
+        
+        /* 顶部统计栏 */
+        .stats-bar {
+            background: white;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+        
+        .stats-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            border-radius: 12px;
+            color: white;
+        }
+        
+        .stat-card:nth-child(2) {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .stat-card:nth-child(3) {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        .stat-card:nth-child(4) {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+        }
+        
+        /* 看板容器 */
+        .kanban-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px 20px;
+        }
+        
+        .kanban-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .kanban-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .add-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .add-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        /* 看板列 */
+        .kanban-board {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        
+        .kanban-column {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .column-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .column-count {
+            background: #f0f0f0;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        /* 卡片 */
+        .card {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-left: 4px solid #667eea;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .card.priority-紧急 {
+            border-left-color: #f5576c;
+        }
+        
+        .card.priority-高 {
+            border-left-color: #f093fb;
+        }
+        
+        .card.priority-中 {
+            border-left-color: #4facfe;
+        }
+        
+        .card.priority-低 {
+            border-left-color: #43e97b;
+        }
+        
+        .card-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+        
+        .card-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .tag {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            background: #e8eaf6;
+            color: #5c6bc0;
+        }
+        
+        .tag.type-风控 {
+            background: #fce4ec;
+            color: #c2185b;
+        }
+        
+        .tag.type-客服 {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .tag.type-巡检 {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        
+        .card-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .owner {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .owner-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .due-date {
+            font-size: 12px;
+        }
+        
+        .due-date.overdue {
+            color: #f5576c;
+            font-weight: bold;
+        }
+        
+        .progress-bar {
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 2px;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .stats-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .kanban-board {
+                grid-template-columns: 1fr;
+            }
+            
+            .kanban-header {
+                flex-direction: column;
+                gap: 12px;
+                align-items: flex-start;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .stats-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .stat-value {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 统计栏 -->
+    <div class="stats-bar">
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-label">总事项数</div>
+                <div class="stat-value">8</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">进行中</div>
+                <div class="stat-value">3</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">已完成</div>
+                <div class="stat-value">2</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">完成率</div>
+                <div class="stat-value">25%</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 看板 -->
+    <div class="kanban-container">
+        <div class="kanban-header">
+            <div class="kanban-title">📋 工作事项看板</div>
+            <button class="add-btn">+ 新增事项</button>
+        </div>
+        
+        <div class="kanban-board">
+            <!-- 未启动 -->
+            <div class="kanban-column">
+                <div class="column-header">
+                    <div class="column-title">⭕ 未启动</div>
+                    <div class="column-count">1</div>
+                </div>
+                
+                <div class="card priority-中">
+                    <div class="card-title">智能客服知识库扩容</div>
+                    <div class="card-meta">
+                        <span class="tag type-客服">智能客服</span>
+                        <span class="tag">中</span>
+                    </div>
+                    <div class="card-info">
+                        <div class="owner">
+                            <div class="owner-avatar">夏</div>
+                            <span>夏韵</span>
+                        </div>
+                        <div class="due-date">截止: 06-01</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 进行中 -->
+            <div class="kanban-column">
+                <div class="column-header">
+                    <div class="column-title">🔄 进行中</div>
+                    <div class="column-count">3</div>
+                </div>
+                
+                <div class="card priority-高">
+                    <div class="card-title">风控模型 v2.0 危险人群识别优化</div>
+                    <div class="card-meta">
+                        <span class="tag type-风控">风控模型的搭建</span>
+                        <span class="tag">高</span>
+                    </div>
+                    <div class="card-info">
+                        <div class="owner">
+                            <div class="owner-avatar">黄</div>
+                            <span>黄京</span>
+                        </div>
+                        <div class="due-date">截止: 05-25</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 60%"></div>
+                    </div>
+                </div>
+                
+                <div class="card priority-中">
+                    <div class="card-title">智能巡检设备接入</div>
+                    <div class="card-meta">
+                        <span class="tag type-巡检">智能巡检</span>
+                        <span class="tag">中</span>
+                    </div>
+                    <div class="card-info">
+                        <div class="owner">
+                            <div class="owner-avatar">孙</div>
+                            <span>孙培</span>
+                        </div>
+                        <div class="due-date">截止: 05-30</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 40%"></div>
+                    </div>
+                </div>
+                
+                <div class="card priority-低">
+                    <div class="card-title">智能客服话术优化</div>
+                    <div class="card-meta">
+                        <span class="tag type-客服">智能客服</span>
+                        <span class="tag">低</span>
+                    </div>
+                    <div class="card-info">
+                        <div class="owner">
+                            <div class="owner-avatar">赵</div>
+                            <span>赵园园</span>
+                        </div>
+                        <div class="due-date">截止: 06-05</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 20%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 遇阻 -->
+            <div class="kanban-column">
+                <div class="column-header">
+                    <div class="column-title">⚠️ 遇阻</div>
+                    <div class="column-count">1</div>
+                </div>
+                
+                <div class="card priority-紧急">
+                    <div class="card-title">智能巡检图像识别准确率提升</div>
+                    <div class="card-meta">
+                        <span class="tag type-巡检">智能巡检</span>
+                        <span class="tag">紧急</span>
+                    </div>
+                    <div class="card-info">
+                        <div class="owner">
+                            <div class="owner-avatar">孙</div>
+                            <span>孙培</span>
+                        </div>
+                        <div class="due-date overdue">⚠️ 已超期 3 天</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 30%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 待验收 -->
+            <div class="kanban-column">
+                <div class="column-header">
+                    <div class="column-title">🔍 待验收</div>
+                    <div class="column-count">1</div>
+                </div>
+                
+                <div class="card priority-高">
+                    <div class="card-title">智能客服多轮对话优化</div>
+                    <div class="card-meta">
+                        <span class="tag type-客服">智能客服</span>
+                        <span class="tag">高</span>
+                    </div>
+                    <div class="card-info">
+                        <div class="owner">
+                            <div class="owner-avatar">夏</div>
+                            <span>夏韵</span>
+                        </div>
+                        <div class="due-date">截止: 05-18</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 90%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 已完成 -->
+            <div class="kanban-column">
+                <div class="column-header">
+                    <div class="column-title">✅ 已完成</div>
+                    <div class="column-count">2</div>
+                </div>
+                
+                <div class="card priority-高">
+                    <div class="card-title">风控模型实时评分接口</div>
+                    <div class="card-meta">
+                        <span class="tag type-风控">风控模型的搭建</span>
+                        <span class="tag">高</span>
+                    </div>
+                    <div class="card-info">
+                        <div class="owner">
+                            <div class="owner-avatar">黄</div>
+                            <span>黄京</span>
+                        </div>
+                        <div class="due-date">✅ 05-08 完成</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 100%"></div>
+                    </div>
+                </div>
+                
+                <div class="card priority-中">
+                    <div class="card-title">智能巡检基础平台搭建</div>
+                    <div class="card-meta">
+                        <span class="tag type-巡检">智能巡检</span>
+                        <span class="tag">中</span>
+                    </div>
+                    <div class="card-info">
+                        <div class="owner">
+                            <div class="owner-avatar">孙</div>
+                            <span>孙培</span>
+                        </div>
+                        <div class="due-date">✅ 05-10 完成</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 卡片点击事件（预览）
+        document.querySelectorAll('.card').forEach(card => {
+            card.addEventListener('click', () => {
+                alert('点击卡片可查看详情、跟进记录、编辑等操作\n（实际功能开发中）');
+            });
+        });
+        
+        // 新增按钮
+        document.querySelector('.add-btn').addEventListener('click', () => {
+            alert('新增事项表单\n（实际功能开发中）');
+        });
+    </script>
+</body>
+</html>

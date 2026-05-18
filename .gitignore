@@ -1,0 +1,6 @@
+*.pdf
+*.png
+sessions/
+scripts/
+*.json
+.DS_Store
